@@ -59,7 +59,10 @@ export default function Header() {
         </nav>
 
         <div className="hidden lg:block">
-          <a href="#contact" className="btn-primary text-sm">
+          <a
+            href="#contact"
+            className="btn bg-azure text-sm text-white shadow-sm hover:bg-azure-dark hover:shadow-md active:translate-y-px"
+          >
             Connect With Us
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </a>
@@ -102,7 +105,7 @@ export default function Header() {
           <a
             href="#contact"
             onClick={() => setOpen(false)}
-            className="btn-primary mt-2 w-full"
+            className="btn mt-2 w-full bg-azure text-white shadow-sm hover:bg-azure-dark hover:shadow-md active:translate-y-px"
           >
             Connect With Us
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
