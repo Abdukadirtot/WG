@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { Send, CheckCircle2, Loader2 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 type Status = "idle" | "submitting" | "success" | "error";
 
@@ -13,9 +14,13 @@ const roles = [
   { value: "institution", label: "Institution" },
 ];
 
+const VALID_ROLES = ["patient", "hospital", "professional", "institution"];
+
 /**
- * Contact form UI. Posts to the placeholder `/api/contact` route.
- * Swap that route (or replace with a mailto/CRM integration) to go live.
+ * Contact form UI. Submits enquiries directly to the Supabase
+ * `contact_submissions` table from the browser (the site is a static export,
+ * so there is no server API route). Inserts are anonymous — allowed by the
+ * table's RLS insert policy — and there is no read access from the client.
  */
 export default function ContactForm() {
   const [status, setStatus] = useState<Status>("idle");
@@ -27,15 +32,33 @@ export default function ContactForm() {
     setError(null);
 
     const form = e.currentTarget;
-    const data = Object.fromEntries(new FormData(form).entries());
+    const data = Object.fromEntries(new FormData(form).entries()) as {
+      name?: string;
+      email?: string;
+      role?: string;
+      message?: string;
+    };
+
+    const name = data.name?.trim() ?? "";
+    const email = data.email?.trim() ?? "";
+    const role = data.role ?? "";
+    const message = data.message?.trim() ?? "";
+
+    // Client-side validation (mirrors the DB constraints).
+    if (!name || !email || !role || !message || !VALID_ROLES.includes(role)) {
+      setStatus("error");
+      setError("Please fill in all fields.");
+      return;
+    }
 
     try {
-      const res = await fetch("/api/contact", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error("Request failed");
+      const supabase = createClient();
+      const { error: insertError } = await supabase
+        .from("contact_submissions")
+        .insert({ name, email, role, message });
+
+      if (insertError) throw insertError;
+
       setStatus("success");
       form.reset();
     } catch {
