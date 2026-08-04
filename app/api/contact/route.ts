@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+
+const VALID_ROLES = ["patient", "hospital", "professional", "institution"];
 
 /**
- * Placeholder contact endpoint.
- *
- * For now this validates the payload and logs it server-side, returning a
- * success response so the UI flow works end-to-end. To go live, replace the
- * body of this handler with your email service (e.g. Resend, SendGrid),
- * a CRM webhook, or a database write.
+ * Contact endpoint — persists enquiries to the Supabase `contact_submissions`
+ * table. Anonymous submissions are allowed (RLS insert policy), so no auth is
+ * required. There is no SELECT policy, so submissions stay private to the
+ * project owner (readable via the Supabase dashboard / service role only).
  */
 export async function POST(request: Request) {
   try {
@@ -29,8 +30,28 @@ export async function POST(request: Request) {
       );
     }
 
-    // TODO: integrate with a real email / CRM provider here.
-    console.info("[WGHC contact] New enquiry:", { name, email, role });
+    if (!VALID_ROLES.includes(String(role))) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid role." },
+        { status: 400 }
+      );
+    }
+
+    const supabase = createClient();
+    const { error } = await supabase.from("contact_submissions").insert({
+      name: String(name).trim(),
+      email: String(email).trim(),
+      role: String(role),
+      message: String(message).trim(),
+    });
+
+    if (error) {
+      console.error("[WGHC contact] Supabase insert failed:", error.message);
+      return NextResponse.json(
+        { ok: false, error: "Could not save your message. Please try again." },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ ok: true });
   } catch {
